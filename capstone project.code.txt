@@ -1,0 +1,87 @@
+import org.apache.commons.lang3.ObjectUtils.median
+import org.apache.spark.sql.functions._
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
+
+import org.apache.spark.sql.execution.command.ClearCacheCommand.stats
+import org.apache.spark.sql.functions._
+
+object Demo {
+  def main(args: Array[String]): Unit = {
+    val spark: SparkSession = SparkSession.builder()
+      .master("local[1]")
+      .appName("SparkByExamples.com")
+      .getOrCreate()
+
+
+    println("read csv files base on wildcard character")
+    val data = spark.read.option("header", "true").csv("C:\\capstone\\capstonemarketanalysis\\data\\Source.csv")
+    data.show()
+
+
+    data.createOrReplaceTempView("mytable")
+    val successDF = spark.sql("SELECT Count(*) AS successCount FROM mytable WHERE poutcome = 'success' ")
+    val failureDF = spark.sql("SELECT Count(*) AS successCount FROM mytable WHERE poutcome = 'failure' ")
+    successDF.show()
+    val numDF = spark.sql("SELECT Count(*) AS totalCount FROM mytable")
+
+    numDF.show()
+
+
+    val successCount = successDF.first().getLong(0)
+    val failureRate = failureDF.first().getLong(0)
+    println(successCount)
+    val totalCount = numDF.first().getLong(0)
+    println(totalCount)
+
+
+    val MarketingSuccessRate = successCount.toDouble / totalCount
+    //Give marketing failure rate
+    val marketingFailureRate = failureRate.toDouble / totalCount
+
+    println("Marketing Success Rate: " + MarketingSuccessRate*100)
+    println("Marketing Failure Rate: " + marketingFailureRate*100)
+
+
+
+
+    println("avg: " + data.select(avg("age")).collect()(0)(0))
+    println("min: " + data.select(min("age")).collect()(0)(0))
+    println("max: " + data.select(max("age")).collect()(0)(0))
+
+
+
+    println("avgerage balance : " + data.select(avg("balance")).collect()(0)(0))
+
+    val medianValue = data.select(median("balance")).collect()(0)(0)
+    println(s"The median price is: $medianValue")
+
+
+
+    val age = spark.sql("select age , count(*) as number from mytable where y = 'yes' group by age order by number desc").show()
+
+
+    val marital = spark.sql("select marital, count(*) as number from mytable where y='yes' group by marital order by number desc ").show()
+
+    
+    val age_marital = spark.sql("select age, marital, count(*) as number from mytable where y='yes' group by age,marital order by number desc ").show()
+
+
+    val Newdata = data.withColumnRenamed("default", "default_flag")
+
+
+    Newdata.show();
+    Newdata.write
+      .format("org.apache.spark.sql.cassandra")
+      .option("table", "marketinganalysis")
+      .option("keyspace", "my_keyspace")
+      .mode("append")
+      .save()
+
+    spark.stop()
+
+
+  }
+
+}
+
